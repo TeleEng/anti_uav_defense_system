@@ -1,57 +1,95 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import json
+import numpy as np
+import asyncio
 
-from src.signal_processing.radar_sim import generate_wifi_burst
-from src.signal_processing.sentinel_model import classify_drone_signal
+from src.signal_processing.sentinel_model import sentinel_ai
+from src.signal_processing.demodulator import demodulate_bpsk
 from src.control.mavlink_node import MavlinkNode
 
 app = FastAPI(title="SENTINEL C-UAS Command & Control")
 
-# Enable CORS for our Eye-Catching Frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Initialize the MAVLink node for UDP Wi-Fi communication
 mav_node = MavlinkNode()
 
-class SignalRequest(BaseModel):
-    drone_type: str  # 'friendly' or 'unknown' (Used to simulate the scenario)
+@app.on_event("startup")
+async def startup_event():
+    # Load the trained FPFE-1D weights and the OSR Centroids
+    sentinel_ai.load()
 
-@app.post("/api/radar/scan")
-async def perform_radar_scan(req: SignalRequest):
-    """
-    1. Simulates detecting a Wi-Fi burst from an incoming drone.
-    2. Runs the FPFE-1D RF Fingerprinting model to classify it.
-    3. Issues MAVLink commands if it is Friendly. Ignores if Unknown.
-    """
-    print(f"\n--- RADAR CONTACT DETECTED ---")
-    
-    # 1. Simulating the RF Burst (2x4096 I/Q Data)
-    iq_data = generate_wifi_burst(signal_type=req.drone_type)
-    
-    # 2. RF Fingerprinting Classification (SENTINEL FPFE-1D)
-    classification = classify_drone_signal(iq_data)
-    print(f"SENTINEL Model Classification: {classification}")
-    
-    response = {
-        "classification": classification,
-        "action_taken": "NONE",
-        "protocol": "MAVLink over Wi-Fi (UDP)"
-    }
-    
-    # 3. Decision Logic (Safe landing only, no firing)
-    if classification == "UNKNOWN_ROGUE":
-        print("WARNING: Unknown RF Signature. Ignoring (No coordinates sent).")
-        response["action_taken"] = "IGNORED (Safety Protocol: No landing coordinates sent to Unverified Target)"
-    
-    elif classification == "KNOWN_FRIENDLY":
-        print("AUTHORIZED DRONE DETECTED. Issuing safe landing sequence...")
-        mav_node.send_land_command()
-        response["action_taken"] = "MAV_CMD_NAV_LAND TRANSMITTED"
+class ConnectionManager:
+    def __init__(self):
+        self.frontend_clients = []
         
-    return response
+    async def connect_frontend(self, websocket: WebSocket):
+        await websocket.accept()
+        self.frontend_clients.append(websocket)
+        
+    def disconnect_frontend(self, websocket: WebSocket):
+        self.frontend_clients.remove(websocket)
+
+    async def broadcast_to_frontends(self, message: dict):
+        for connection in self.frontend_clients:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/frontend")
+async def websocket_frontend(websocket: WebSocket):
+    await manager.connect_frontend(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_frontend(websocket)
+
+@app.websocket("/ws/sim")
+async def websocket_sim(websocket: WebSocket):
+    """Receives data from the drone simulator and orchestrates the AI pipeline."""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            payload = json.loads(data)
+            
+            if payload["type"] == "RADAR_SWEEP":
+                processed_drones = []
+                for drone in payload["data"]:
+                    processed = {"id": drone["id"], "x": drone["x"], "y": drone["y"]}
+                    
+                    if "raw_iq" in drone:
+                        # 1. We intercepted a Wi-Fi burst from this drone
+                        iq_array = np.array(drone["raw_iq"])
+                        cfo = drone["carrier_freq"]
+                        
+                        # 2. OSR Classification via FPFE-1D embeddings
+                        label, dist = sentinel_ai.analyze_signal(iq_array)
+                        processed["classification"] = label
+                        processed["osr_dist"] = dist
+                        
+                        # 3. Demodulation (Read physical payload)
+                        demod_text = demodulate_bpsk(iq_array, cfo)
+                        processed["payload"] = demod_text
+                        
+                        # 4. C2 Action Logic (Fail-Safe)
+                        if "AUTHORIZED_DRONE" in label:
+                            processed["action"] = "MAV_CMD_NAV_LAND TRANSMITTED"
+                            mav_node.send_land_command()
+                        else:
+                            processed["action"] = "IGNORED (UNAUTHORIZED/UNINITIALIZED TARGET)"
+                            
+                        # Send snippet for UI graph
+                        processed["iq_snippet"] = drone["iq_real"]
+                        
+                    processed_drones.append(processed)
+                    
+                # Broadcast the fully processed radar sweep to all connected Frontends
+                await manager.broadcast_to_frontends({"type": "RADAR_UPDATE", "data": processed_drones})
+                
+    except WebSocketDisconnect:
+        print("Simulator Disconnected.")

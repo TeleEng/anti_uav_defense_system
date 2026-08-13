@@ -1,34 +1,51 @@
 import numpy as np
 
-def generate_wifi_burst(signal_type: str = "friendly", num_samples=4096):
+def text_to_bits(text: str):
+    bits = []
+    for char in text:
+        binval = bin(ord(char))[2:].zfill(8)
+        bits.extend([int(b) for b in binval])
+    return np.array(bits)
+
+def generate_wifi_burst(drone_id: int, is_rogue: bool, payload_text: str, num_samples=4096):
     """
-    Simulates a Wi-Fi physical layer I/Q burst from a drone.
-    signal_type: 'friendly' or 'unknown'
-    Returns a numpy array of shape (2, num_samples) representing I and Q channels.
+    Generates a BPSK modulated signal with specific hardware impairments.
+    Includes the payload text.
     """
-    # Create base carrier wave (complex)
     t = np.linspace(0, 1, num_samples)
     
-    if signal_type == "friendly":
-        # Simulate a specific known hardware signature (Authorized drone fleet)
-        # Low hardware phase noise
-        freq = 10.5
-        phase_noise = np.random.normal(0, 0.05, num_samples)
+    # Convert text to bits and pad to match required length
+    required_symbols = num_samples // 16
+    bits = text_to_bits(payload_text)
+    
+    if len(bits) < required_symbols:
+        # Pad with alternating bits
+        padding = np.random.randint(0, 2, required_symbols - len(bits))
+        bits = np.concatenate((bits, padding))
     else:
-        # Simulate unknown hardware (Rogue drone)
-        # High, erratic hardware phase noise typical of cheap transmitters
-        freq = 11.2
-        phase_noise = np.random.normal(0, 0.25, num_samples)
+        bits = bits[:required_symbols]
         
-    # Generate the baseband signal
-    complex_signal = np.exp(1j * (2 * np.pi * freq * t + phase_noise))
+    symbols = np.repeat(bits * 2 - 1, 16) # BPSK: -1 and 1
     
-    # Add AWGN (Additive White Gaussian Noise) simulating air channel
-    noise = (np.random.randn(num_samples) + 1j * np.random.randn(num_samples)) * 0.1
-    received_signal = complex_signal + noise
+    # Inject Hardware Impairments
+    if not is_rogue:
+        # Authorized Drones (0, 1, 2)
+        cfos = [10.1, 10.5, 9.8]
+        phase_vars = [0.02, 0.03, 0.01]
+        cfo = cfos[drone_id % 3]
+        phase_var = phase_vars[drone_id % 3]
+    else:
+        # Rogue Drones
+        cfo = 11.2 + np.random.uniform(-0.5, 0.5)
+        phase_var = 0.25 # Huge phase noise variance
+        
+    phase_noise = np.random.normal(0, phase_var, num_samples)
+    carrier = np.exp(1j * (2 * np.pi * cfo * t + phase_noise))
     
-    # Separate into I (In-phase) and Q (Quadrature) channels for the 1D-FPFE neural network
-    iq_data = np.stack((np.real(received_signal), np.imag(received_signal)), axis=0)
+    signal = symbols * carrier
     
-    # Final Shape is (2, 4096)
-    return iq_data
+    # Add Channel Noise
+    noise = (np.random.randn(num_samples) + 1j * np.random.randn(num_samples)) * 0.5
+    rx = signal + noise
+    
+    return np.stack((np.real(rx), np.imag(rx)), axis=0), cfo

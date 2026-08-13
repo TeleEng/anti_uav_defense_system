@@ -3,52 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL C-UAS Command Center</title>
+    <title>SENTINEL ATC Swarm C-UAS</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="dashboard">
         <header>
-            <h1>SENTINEL C-UAS COMMAND & CONTROL</h1>
-            <p>RF Fingerprinting & MAVLink Telemetry System</p>
+            <h1>SENTINEL ADVANCED C-UAS (ATC SWARM TRACKING)</h1>
+            <p>Live FPFE-1D Open Set Recognition & Physical BPSK Demodulation</p>
         </header>
 
         <main>
-            <!-- Radar Display -->
+            <!-- Air Traffic Control (ATC) Radar Display -->
             <div class="radar-container">
-                <div class="radar">
-                    <div class="sweep"></div>
-                    <div class="grid"></div>
-                    <div class="crosshair"></div>
-                    <div id="targetBlip" class="target hidden"></div>
-                </div>
-                <div class="radar-controls">
-                    <button id="btnFriendly">Simulate Known Drone (DJI)</button>
-                    <button id="btnRogue" class="danger">Simulate Unknown Drone (Rogue)</button>
+                <div class="radar-box">
+                    <!-- Plot area for drones -->
+                    <div id="airspace" class="airspace">
+                        <!-- Blips added dynamically via JS WebSockets -->
+                    </div>
                 </div>
             </div>
 
             <!-- Signal & AI Analysis Panel -->
             <div class="analysis-panel">
                 <div class="panel-section">
-                    <h2>Raw RF I/Q Signal (Wi-Fi Burst)</h2>
-                    <div class="signal-visualizer">
-                        <canvas id="signalCanvas" width="500" height="100"></canvas>
+                    <h2>Live Demodulated Wi-Fi Payload (BPSK)</h2>
+                    <div id="demodBox" class="data-box monospace">
+                        AWAITING RF INTERCEPTION...
                     </div>
                 </div>
 
                 <div class="panel-section">
-                    <h2>SENTINEL FPFE-1D Classification</h2>
+                    <h2>SENTINEL Classification (FPFE-1D Open Set Recognition)</h2>
                     <div id="classificationResult" class="classification-box waiting">
-                        AWAITING SIGNAL...
+                        --
                     </div>
+                    <div class="osr-dist">Latent Distance: <span id="osrDist">--</span> (Threshold: 0.15)</div>
                 </div>
 
                 <div class="panel-section">
                     <h2>Autonomous C2 Protocol (MAVLink/UDP)</h2>
                     <div id="actionResult" class="action-box">
                         --
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h2>Intercepted I/Q Signal Snippet (Time Domain)</h2>
+                    <div class="signal-visualizer">
+                        <canvas id="signalCanvas" width="500" height="80"></canvas>
                     </div>
                 </div>
             </div>
