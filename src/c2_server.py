@@ -10,9 +10,26 @@ from src.control.mavlink_node import MavlinkNode
 
 app = FastAPI(title="SENTINEL C-UAS Command & Control")
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 mav_node = MavlinkNode()
+
+# Serve the main index.html at the root
+@app.get("/")
+async def serve_frontend():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "../frontend/index.html"))
+
+@app.get("/style.css")
+async def serve_css():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "../frontend/style.css"))
+
+@app.get("/app.js")
+async def serve_js():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "../frontend/app.js"))
 
 @app.on_event("startup")
 async def startup_event():
@@ -55,6 +72,7 @@ async def websocket_sim(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            print("Received data from simulator!")
             payload = json.loads(data)
             
             if payload["type"] == "RADAR_SWEEP":
@@ -63,6 +81,7 @@ async def websocket_sim(websocket: WebSocket):
                     processed = {"id": drone["id"], "x": drone["x"], "y": drone["y"]}
                     
                     if "raw_iq" in drone:
+                        print(f"[{drone['id']}] Intercepted raw_iq burst!")
                         try:
                             # 1. We intercepted a Wi-Fi burst from this drone
                             iq_array = np.array(drone["raw_iq"])
@@ -70,12 +89,15 @@ async def websocket_sim(websocket: WebSocket):
                             
                             # Auto-retry loading if it failed on startup
                             if not sentinel_ai.is_loaded:
+                                print("AI not loaded, attempting to load...")
                                 sentinel_ai.load()
                                 
                             if sentinel_ai.is_loaded:
                                 label, dist = sentinel_ai.analyze_signal(iq_array)
                             else:
                                 label, dist = "UNINITIALIZED", 999.0
+                                
+                            print(f"[{drone['id']}] AI Classification Result: {label} (Distance: {dist})")
                                 
                             processed["classification"] = label
                             processed["osr_dist"] = dist

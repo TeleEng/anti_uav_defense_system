@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
+        console.log("WebSocket received message type:", msg.type);
         if (msg.type === "RADAR_UPDATE") {
             updateRadar(msg.data);
         }

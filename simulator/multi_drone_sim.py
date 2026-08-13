@@ -58,6 +58,7 @@ async def drone_movement_loop():
                                 "y": round(d["y"])
                             })
                             
+                    print(f"Sending radar sweep with {len(updates)} drone updates...", flush=True)
                     await websocket.send(json.dumps({"type": "RADAR_SWEEP", "data": updates}))
                     await asyncio.sleep(0.5) # Radar updates every 500ms
         except Exception as e:
