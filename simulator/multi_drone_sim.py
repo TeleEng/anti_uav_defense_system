@@ -27,7 +27,7 @@ async def drone_movement_loop():
     while True:
         try:
             async with websockets.connect(uri) as websocket:
-                print("✅ Connected to C2 Radar Server.")
+                print("Connected to C2 Radar Server.")
                 while True:
                     updates = []
                     for d in drones:
