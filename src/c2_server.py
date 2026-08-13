@@ -67,8 +67,15 @@ async def websocket_sim(websocket: WebSocket):
                         iq_array = np.array(drone["raw_iq"])
                         cfo = drone["carrier_freq"]
                         
-                        # 2. OSR Classification via FPFE-1D embeddings
-                        label, dist = sentinel_ai.analyze_signal(iq_array)
+                        # Auto-retry loading if it failed on startup
+                        if not sentinel_ai.is_loaded:
+                            sentinel_ai.load()
+                            
+                        if sentinel_ai.is_loaded:
+                            label, dist = sentinel_ai.analyze_signal(iq_array)
+                        else:
+                            label, dist = "UNINITIALIZED", 999.0
+                            
                         processed["classification"] = label
                         processed["osr_dist"] = dist
                         
