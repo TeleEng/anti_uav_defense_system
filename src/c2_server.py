@@ -63,35 +63,43 @@ async def websocket_sim(websocket: WebSocket):
                     processed = {"id": drone["id"], "x": drone["x"], "y": drone["y"]}
                     
                     if "raw_iq" in drone:
-                        # 1. We intercepted a Wi-Fi burst from this drone
-                        iq_array = np.array(drone["raw_iq"])
-                        cfo = drone["carrier_freq"]
-                        
-                        # Auto-retry loading if it failed on startup
-                        if not sentinel_ai.is_loaded:
-                            sentinel_ai.load()
+                        try:
+                            # 1. We intercepted a Wi-Fi burst from this drone
+                            iq_array = np.array(drone["raw_iq"])
+                            cfo = drone["carrier_freq"]
                             
-                        if sentinel_ai.is_loaded:
-                            label, dist = sentinel_ai.analyze_signal(iq_array)
-                        else:
-                            label, dist = "UNINITIALIZED", 999.0
+                            # Auto-retry loading if it failed on startup
+                            if not sentinel_ai.is_loaded:
+                                sentinel_ai.load()
+                                
+                            if sentinel_ai.is_loaded:
+                                label, dist = sentinel_ai.analyze_signal(iq_array)
+                            else:
+                                label, dist = "UNINITIALIZED", 999.0
+                                
+                            processed["classification"] = label
+                            processed["osr_dist"] = dist
                             
-                        processed["classification"] = label
-                        processed["osr_dist"] = dist
-                        
-                        # 3. Demodulation (Read physical payload)
-                        demod_text = demodulate_bpsk(iq_array, cfo)
-                        processed["payload"] = demod_text
-                        
-                        # 4. C2 Action Logic (Fail-Safe)
-                        if "AUTHORIZED_DRONE" in label:
-                            processed["action"] = "MAV_CMD_NAV_LAND TRANSMITTED"
-                            mav_node.send_land_command()
-                        else:
-                            processed["action"] = "IGNORED (UNAUTHORIZED/UNINITIALIZED TARGET)"
+                            # 3. Demodulation (Read physical payload)
+                            demod_text = demodulate_bpsk(iq_array, cfo)
+                            processed["payload"] = demod_text
                             
-                        # Send snippet for UI graph
-                        processed["iq_snippet"] = drone["iq_real"]
+                            # 4. C2 Action Logic (Fail-Safe)
+                            if "AUTHORIZED_DRONE" in label:
+                                processed["action"] = "MAV_CMD_NAV_LAND TRANSMITTED"
+                                try:
+                                    mav_node.send_land_command()
+                                except Exception:
+                                    pass  # MAVLink send is best-effort
+                            else:
+                                processed["action"] = "IGNORED (UNAUTHORIZED/UNINITIALIZED TARGET)"
+                                
+                            # Send snippet for UI graph
+                            processed["iq_snippet"] = drone["iq_real"]
+                        except Exception as e:
+                            print(f"Processing error for drone {drone.get('id')}: {e}")
+                            processed["classification"] = "ERROR"
+                            processed["action"] = f"PROCESSING ERROR: {e}"
                         
                     processed_drones.append(processed)
                     
@@ -100,3 +108,4 @@ async def websocket_sim(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         print("Simulator Disconnected.")
+
