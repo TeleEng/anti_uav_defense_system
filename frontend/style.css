@@ -1,0 +1,195 @@
+:root {
+    --bg: #050a12;
+    --panel-bg: #0a1324;
+    --neon-green: #00ff41;
+    --neon-red: #ff003c;
+    --neon-blue: #00f0ff;
+    --text-main: #e0e6ed;
+    --border: #1a2f4c;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    padding: 2rem;
+    overflow-x: hidden;
+}
+
+.dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--neon-blue);
+    padding-bottom: 1rem;
+    box-shadow: 0 4px 15px -5px rgba(0, 240, 255, 0.2);
+}
+
+header h1 {
+    color: var(--neon-blue);
+    font-size: 2.5rem;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+}
+
+/* Radar System */
+.radar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.radar {
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #001f0a 0%, #000 100%);
+    border: 3px solid var(--neon-green);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.2), inset 0 0 30px rgba(0, 255, 65, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.radar .grid {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-radial-gradient(transparent 0, transparent 48px, rgba(0, 255, 65, 0.3) 50px),
+        linear-gradient(90deg, transparent 49.5%, rgba(0, 255, 65, 0.3) 50%, transparent 50.5%),
+        linear-gradient(0deg, transparent 49.5%, rgba(0, 255, 65, 0.3) 50%, transparent 50.5%);
+}
+
+.radar .sweep {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    top: 0;
+    right: 0;
+    transform-origin: 0% 100%;
+    background: linear-gradient(90deg, rgba(0, 255, 65, 0.5) 0%, transparent 100%);
+    animation: sweep 4s infinite linear;
+}
+
+@keyframes sweep {
+    to { transform: rotate(360deg); }
+}
+
+.target {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background-color: var(--neon-red);
+    border-radius: 50%;
+    box-shadow: 0 0 15px var(--neon-red);
+    top: 30%;
+    left: 60%;
+    animation: blink 1s infinite;
+}
+
+.target.friendly {
+    background-color: var(--neon-green);
+    box-shadow: 0 0 15px var(--neon-green);
+}
+
+.target.hidden {
+    display: none;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+
+.radar-controls button {
+    background: transparent;
+    color: var(--neon-green);
+    border: 1px solid var(--neon-green);
+    padding: 1rem 1.5rem;
+    font-family: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0 0.5rem;
+}
+
+.radar-controls button:hover {
+    background: rgba(0, 255, 65, 0.1);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+}
+
+.radar-controls button.danger {
+    color: var(--neon-red);
+    border-color: var(--neon-red);
+}
+
+.radar-controls button.danger:hover {
+    background: rgba(255, 0, 60, 0.1);
+    box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+}
+
+/* Analysis Panel */
+.analysis-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.panel-section {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    border-radius: 4px;
+}
+
+.panel-section h2 {
+    font-size: 1.2rem;
+    color: var(--neon-blue);
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
+.signal-visualizer {
+    background: #000;
+    border: 1px solid var(--neon-blue);
+    height: 100px;
+    width: 100%;
+}
+
+.classification-box {
+    padding: 1rem;
+    font-size: 1.5rem;
+    text-align: center;
+    border: 2px dashed var(--border);
+    transition: all 0.3s ease;
+}
+
+.classification-box.waiting { color: #555; }
+.classification-box.friendly { color: var(--neon-green); border-color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+.classification-box.rogue { color: var(--neon-red); border-color: var(--neon-red); text-shadow: 0 0 10px var(--neon-red); }
+
+.action-box {
+    padding: 1rem;
+    background: #000;
+    color: var(--text-main);
+    font-size: 1.1rem;
+    border-left: 4px solid var(--neon-blue);
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL C-UAS Command Center</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>SENTINEL C-UAS COMMAND & CONTROL</h1>
+            <p>RF Fingerprinting & MAVLink Telemetry System</p>
+        </header>
+
+        <main>
+            <!-- Radar Display -->
+            <div class="radar-container">
+                <div class="radar">
+                    <div class="sweep"></div>
+                    <div class="grid"></div>
+                    <div class="crosshair"></div>
+                    <div id="targetBlip" class="target hidden"></div>
+                </div>
+                <div class="radar-controls">
+                    <button id="btnFriendly">Simulate Known Drone (DJI)</button>
+                    <button id="btnRogue" class="danger">Simulate Unknown Drone (Rogue)</button>
+                </div>
+            </div>
+
+            <!-- Signal & AI Analysis Panel -->
+            <div class="analysis-panel">
+                <div class="panel-section">
+                    <h2>Raw RF I/Q Signal (Wi-Fi Burst)</h2>
+                    <div class="signal-visualizer">
+                        <canvas id="signalCanvas" width="500" height="100"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>SENTINEL FPFE-1D Classification</h2>
+                    <div id="classificationResult" class="classification-box waiting">
+                        AWAITING SIGNAL...
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>Autonomous C2 Protocol (MAVLink/UDP)</h2>
+                    <div id="actionResult" class="action-box">
+                        --
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
